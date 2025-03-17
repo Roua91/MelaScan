@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Patient</title>
+</head>
+<body>
+    <h2>Add Patient</h2>
+    <form action="/add_patient" method="POST">
+        <label for="patient_name">Patient Name:</label>
+        <input type="text" id="patient_name" name="patient_name" required><br><br>
+        
+        <label for="patient_contact">Patient Contact:</label>
+        <input type="text" id="patient_contact" name="patient_contact" required><br><br>
+        
+        <label for="date_of_birth">Date of Birth:</label>
+        <input type="date" id="date_of_birth" name="date_of_birth" required><br><br>
+        
+        <label for="clinic_id">Clinic ID:</label>
+        <input type="text" id="clinic_id" name="clinic_id" required><br><br>
+
+        <input type="submit" value="Add Patient">
+    </form>
+</body>
+</html>
