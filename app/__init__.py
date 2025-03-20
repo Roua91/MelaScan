@@ -1,24 +1,33 @@
-# app/__init__.py
 from flask import Flask
-from flask_pymongo import PyMongo
-from .config import Config
+from flask_sqlalchemy import SQLAlchemy
+from flask_jwt_extended import JWTManager
+from flask_bcrypt import Bcrypt
+from flask_talisman import Talisman
+from flask_cors import CORS
+from .database import db
 
-# Initialize the MongoDB instance
-mongo = PyMongo()
+jwt = JWTManager()
+bcrypt = Bcrypt()
 
 def create_app():
-    # Create the Flask application instance
     app = Flask(__name__)
+    
+    # Configuration settings
+    app.config['SECRET_KEY'] = 'your_secret_key'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/app.db'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # Load the configuration from the Config class
-    app.config.from_object(Config)
+    Talisman(app)  # Enforce HTTPS security policies
+    CORS(app)  # Enable CORS for frontend requests
 
-    # Initialize MongoDB with Flask
-    mongo.init_app(app)
+    db.init_app(app)
+    jwt.init_app(app)
+    bcrypt.init_app(app)
 
-    # Register blueprints for routes
-    from app.routes import main_routes  # Ensure routes module exists
-    app.register_blueprint(main_routes)
+    # Register Blueprints
+    from .routes import main_bp
+    from .auth import auth_bp
+    app.register_blueprint(main_bp)
+    app.register_blueprint(auth_bp, url_prefix="/auth")
 
-    # Return the app instance
     return app

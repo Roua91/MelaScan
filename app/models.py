@@ -1,162 +1,78 @@
-#Database models (User, Admin, AnalysisResult)
+from .database import db
 from datetime import datetime
-from bson import ObjectId
-from app import mongo
 
-# Users Collection
-def create_user(data):
-    """Create a new user."""
-    user = {
-        "username": data["username"],
-        "password": data["password"],  # Password should be hashed before storing
-        "role": data["role"],  # 'doctor', 'local_admin', 'global_admin'
-        "clinic_id": ObjectId(data["clinic_id"])  # Reference to Clinic collection
-    }
-    return user
+# --- Users Table ---
+class User(db.Model):
+    __tablename__ = 'users'
+    user_id = db.Column(db.Integer, primary_key=True)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.clinic_id'), nullable=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(128), nullable=False)
 
-def insert_user(data):
-    user = create_user(data)
-    mongo.db.users.insert_one(user)
-    return str(user["_id"])
+# --- Doctors Table ---
+class Doctor(db.Model):
+    __tablename__ = 'doctors'
+    doctor_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.clinic_id'), nullable=False)
 
-# Doctors Collection
-def create_doctor(data):
-    """Create a new doctor."""
-    doctor = {
-        "user_id": ObjectId(data["user_id"]),  # Reference to Users collection
-        "clinic_id": ObjectId(data["clinic_id"]),  # Reference to Clinics collection
-        "specialization": data["specialization"]
-    }
-    return doctor
+# --- Local Admins Table ---
+class LocalAdmin(db.Model):
+    __tablename__ = 'local_admins'
+    local_admin_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.clinic_id'), nullable=False)
 
-def insert_doctor(data):
-    doctor = create_doctor(data)
-    mongo.db.doctors.insert_one(doctor)
-    return str(doctor["_id"])
+# --- Global Admins Table ---
+class GlobalAdmin(db.Model):
+    __tablename__ = 'global_admins'
+    global_admin_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
 
-# LocalAdmins Collection
-def create_local_admin(data):
-    """Create a new local admin."""
-    local_admin = {
-        "user_id": ObjectId(data["user_id"]),  # Reference to Users collection
-        "clinic_id": ObjectId(data["clinic_id"])  # Reference to Clinics collection
-    }
-    return local_admin
+# --- Clinics Table ---
+class Clinic(db.Model):
+    __tablename__ = 'clinics'
+    clinic_id = db.Column(db.Integer, primary_key=True)
+    clinic_name = db.Column(db.String(150), nullable=False)
+    clinic_address = db.Column(db.String(250), nullable=False)
+    contact_number = db.Column(db.String(20), nullable=False)
 
-def insert_local_admin(data):
-    local_admin = create_local_admin(data)
-    mongo.db.local_admins.insert_one(local_admin)
-    return str(local_admin["_id"])
+    users = db.relationship('User', backref='clinic', lazy=True)
 
-# GlobalAdmins Collection
-def create_global_admin(data):
-    """Create a new global admin."""
-    global_admin = {
-        "user_id": ObjectId(data["user_id"]),  # Reference to Users collection
-    }
-    return global_admin
+# --- Global Admin Access Table ---
+class GlobalAdminAccess(db.Model):
+    __tablename__ = 'global_admin_access'
+    global_admin_id = db.Column(db.Integer, db.ForeignKey('global_admins.global_admin_id'), primary_key=True)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.clinic_id'), primary_key=True)
 
-def insert_global_admin(data):
-    global_admin = create_global_admin(data)
-    mongo.db.global_admins.insert_one(global_admin)
-    return str(global_admin["_id"])
+# --- Patients Table ---
+class Patient(db.Model):
+    __tablename__ = 'patients'
+    patient_id = db.Column(db.Integer, primary_key=True)
+    patient_name = db.Column(db.String(150), nullable=False)
+    patient_contact = db.Column(db.String(20), nullable=False)
+    data_of_birth = db.Column(db.Date, nullable=False)
 
-# Clinics Collection
-def create_clinic(data):
-    """Create a new clinic."""
-    clinic = {
-        "clinic_name": data["clinic_name"],
-        "clinic_address": data["clinic_address"],
-        "contact_number": data["contact_number"],
-        "local_admins": [ObjectId(admin) for admin in data["local_admins"]],  # List of LocalAdmin references
-        "global_admins": [ObjectId(admin) for admin in data["global_admins"]],  # List of GlobalAdmin references
-        "doctors": [ObjectId(doctor) for doctor in data["doctors"]]  # List of Doctor references
-    }
-    return clinic
+# --- Patient Access Control Table ---
+class PatientAccessControl(db.Model):
+    __tablename__ = 'patient_access_control'
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.patient_id'), primary_key=True)
+    clinic_id = db.Column(db.Integer, db.ForeignKey('clinics.clinic_id'), primary_key=True)
 
-def insert_clinic(data):
-    clinic = create_clinic(data)
-    mongo.db.clinics.insert_one(clinic)
-    return str(clinic["_id"])
+# --- Images Table (For Storing Image Metadata) ---
+class Image(db.Model):
+    __tablename__ = 'images'
+    image_id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.patient_id'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)  # Local file storage
+    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Patients Collection
-# Create a patient
-def create_patient(data):
-    """Create a new patient."""
-    patient = {
-        "patient_name": data["patient_name"],
-        "patient_contact": data["patient_contact"],
-        "date_of_birth": data["date_of_birth"],
-        "clinic_id": ObjectId(data["clinic_id"]),  # Reference to Clinics collection
-    }
-    return patient
-
-# Insert the patient into the database
-def insert_patient(data):
-    patient = create_patient(data)
-    mongo.db.patients.insert_one(patient)
-    return str(patient["_id"])
-
-# Reports Collection
-def create_report(data, patient_id, image_id):
-    """Create a new report."""
-    report = {
-        "patient_id": ObjectId(patient_id),  # Reference to Patients collection
-        "image_id": ObjectId(image_id),  # Reference to Images collection
-        "prediction_result": data["prediction_result"],
-        "generated_on": datetime.utcnow()
-    }
-    return report
-
-def insert_report(data, patient_id, image_id):
-    report = create_report(data, patient_id, image_id)
-    mongo.db.reports.insert_one(report)
-    return str(report["_id"])
-
-# Images Collection
-def create_image(data, patient_id):
-    """Create a new image."""
-    image = {
-        "patient_id": ObjectId(patient_id),  # Reference to Patients collection
-        "filename": data["filename"],
-        "upload_date": datetime.utcnow(),
-        "file_path": data["file_path"]
-    }
-    return image
-
-def insert_image(data, patient_id):
-    image = create_image(data, patient_id)
-    mongo.db.images.insert_one(image)
-    return str(image["_id"])
-
-# Patient Access Control Collection
-def create_patient_access(data):
-    """Create a new patient access control record."""
-    patient_access = {
-        "patient_id": ObjectId(data["patient_id"]),  # Reference to Patients collection
-        "clinic_id": ObjectId(data["clinic_id"])  # Reference to Clinics collection
-    }
-    return patient_access
-
-def insert_patient_access(data):
-    patient_access = create_patient_access(data)
-    mongo.db.patient_access.insert_one(patient_access)
-    return str(patient_access["_id"])
-
-# Example function to find all reports for a given patient
-def find_reports_for_patient(patient_id):
-    reports = mongo.db.reports.find({"patient_id": ObjectId(patient_id)})
-    result = []
-    for report in reports:
-        report["_id"] = str(report["_id"])  # Convert ObjectId to string for easy handling
-        result.append(report)
-    return result
-
-# Example function to find all images for a given patient
-def find_images_for_patient(patient_id):
-    images = mongo.db.images.find({"patient_id": ObjectId(patient_id)})
-    result = []
-    for image in images:
-        image["_id"] = str(image["_id"])  # Convert ObjectId to string for easy handling
-        result.append(image)
-    return result
+# --- Reports Table ---
+class Report(db.Model):
+    __tablename__ = 'reports'
+    report_id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.patient_id'), nullable=False)
+    image_id = db.Column(db.Integer, db.ForeignKey('images.image_id'), nullable=False)
+    prediction_result = db.Column(db.String(50), nullable=False)
+    generated_on = db.Column(db.DateTime, default=datetime.utcnow)
